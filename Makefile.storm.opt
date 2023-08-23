@@ -4,12 +4,11 @@ SHELL = /bin/sh
 
 # System-specific settings
 
-CC =		/home/rbbrigh/mpich-1.2.6/install/bin/mpicc
-CCFLAGS =	-O3 -fastsse -DMPICH_IGNORE_CXX_SEEK -DLONG64 -DNODEF \
-		-Msafeptr -Mipa=fast 
+CC =		mpicc
+CCFLAGS =	-O3 -DMPICH_IGNORE_CXX_SEEK -DLONG64 -DNODEF \
 #CCFLAGS =	-O3 -fastsse -DMPICH_IGNORE_CXX_SEEK -DLONG64 -DNODEF -DCHECK \
 #		-Msafeptr -Mipa=fast 
-LINK =		/home/rbbrigh/mpich-1.2.6/install/bin/mpicc
+LINK =		mpicc
 LINKFLAGS =	-O
 LIB =
 
@@ -28,3 +27,6 @@ gups_opt:	gups_opt.o
 
 %.o:%.c
 	$(CC) $(CCFLAGS) -c $<
+
+clean:
+	rm gups_vanilla *.o

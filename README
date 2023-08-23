@@ -1,3 +1,22 @@
+## GUPS
+
+delete MPI part in `gups_vanillla.c` to get `gups_single.c` file which can get the same result in page walk overhead using perf
+
+```bash
+# compile
+make
+# test tlb
+# shaojiemike @ snode6 in ~/github/PIA_huawei/investigation/pagewalk on git:main x [14:48:14]
+$ ./tlbstat -c '/staff/shaojiemike/github/gups/gups 30 100000 4096'                      
+command is /staff/shaojiemike/github/gups/gups 30 100000 4096
+K_CYCLES   K_INSTR      IPC DTLB_WALKS ITLB_WALKS K_DTLBCYC  K_ITLBCYC  DTLB% ITLB%
+25908875   11484493    0.44 48799603   9548956    2603091    205007     10.05  0.79
+25940172   7028750     0.27 261267553  2457476    26588222   61496      102.50  0.24
+25888783   8446009     0.33 175005801  6043660    17887257   138348     69.09  0.53
+```
+
+## Old README
+
 GUPS distribution - 13 Oct 2006
 
 This directory contains several implementations of an algorithm that

@@ -12,7 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <mpi.h>
+// #include <mpi.h>
 #include <zsim_hooks.h>
 
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -27,21 +27,19 @@
 #define ZERO64B 0L
 typedef long s64Int;
 typedef unsigned long u64Int;
-#define U64INT MPI_UNSIGNED_LONG
 #else
 #define POLY 0x0000000000000007ULL
 #define PERIOD 1317624576693539401LL
 #define ZERO64B 0LL
 typedef long long s64Int;
 typedef unsigned long long u64Int;
-#define U64INT MPI_LONG_LONG_INT
 #endif
 
 u64Int HPCC_starts(s64Int n);
 
 int main(int narg, char **arg)
 {
-  int me,nprocs;
+  int me=0,nprocs=1;
   int i,j,iterate,niterate;
   int nlocal,nlocalm1,logtable,index,logtablelocal;
   int logprocs,ipartner,ndata,nsend,nkeep,nrecv,maxndata,maxnfinal,nexcess;
@@ -50,14 +48,8 @@ int main(int narg, char **arg)
   u64Int *table,*data,*send;
   u64Int ran,datum,procmask,nglobal,offset,nupdates;
   u64Int ilong,nexcess_long,nbad_long;
-  MPI_Status status;
 
   zsim_roi_begin();
-
-
-  MPI_Init(&narg,&arg);
-  MPI_Comm_rank(MPI_COMM_WORLD,&me);
-  MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
 
   /* command line args = N M chunk
      N = length of global table is 2^N
@@ -65,22 +57,13 @@ int main(int narg, char **arg)
      chunk = # of updates in one set */
 
   if (narg != 4) {
-    if (me == 0) printf("Syntax: gups N M chunk\n");
-    MPI_Abort(MPI_COMM_WORLD,1);
+    printf("Syntax: gups N M chunk\n");
   }
 
   logtable = atoi(arg[1]);
   niterate = atoi(arg[2]);
   chunk = atoi(arg[3]);
 
-  /* insure Nprocs is power of 2 */
-
-  i = 1;
-  while (i < nprocs) i *= 2;
-  if (i != nprocs) {
-    if (me == 0) printf("Must run on power-of-2 procs\n");
-    MPI_Abort(MPI_COMM_WORLD,1);
-  }
 
   /* nglobal = entire table
      nlocal = size of my portion
@@ -108,7 +91,6 @@ int main(int narg, char **arg)
 
   if (!table || !data || !send) {
     if (me == 0) printf("Table allocation failed\n");
-    MPI_Abort(MPI_COMM_WORLD,1);
   }
 
   /* initialize my portion of global array
@@ -120,8 +102,8 @@ int main(int narg, char **arg)
 
   /* start my random # partway thru global stream */
 
-  nupdates = (u64Int) nprocs * chunk * niterate;
-  ran = HPCC_starts(nupdates/nprocs*me);
+  nupdates = (u64Int) 1 * chunk * niterate;
+  ran = HPCC_starts(0);
 
   /* loop:
        generate chunk random values per proc
@@ -133,8 +115,8 @@ int main(int narg, char **arg)
   nexcess = 0;
   nbad = 0;
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  t0 = -MPI_Wtime();
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // t0 = -MPI_Wtime();
 
   for (iterate = 0; iterate < niterate; iterate++) {
     for (i = 0; i < chunk; i++) {
@@ -159,9 +141,9 @@ int main(int narg, char **arg)
 	}
       }
 
-      MPI_Sendrecv(send,nsend,U64INT,ipartner,0,&data[nkeep],chunkbig,U64INT,
-		   ipartner,0,MPI_COMM_WORLD,&status);
-      MPI_Get_count(&status,U64INT,&nrecv);
+      // MPI_Sendrecv(send,nsend,U64INT,ipartner,0,&data[nkeep],chunkbig,U64INT,
+		  //  ipartner,0,MPI_COMM_WORLD,&status);
+      // MPI_Get_count(&status,U64INT,&nrecv);
       ndata = nkeep + nrecv;
       maxndata = MAX(maxndata,ndata);
     }
@@ -181,22 +163,22 @@ int main(int narg, char **arg)
 #endif
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  t0 += MPI_Wtime();
+  // MPI_Barrier(MPI_COMM_WORLD);
+  // t0 += MPI_Wtime();
 
   /* stats */
 
-  MPI_Allreduce(&t0,&t0_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  // MPI_Allreduce(&t0,&t0_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
   t0 = t0_all/nprocs;
 
   i = maxndata;
-  MPI_Allreduce(&i,&maxndata,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+  // MPI_Allreduce(&i,&maxndata,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   i = maxnfinal;
-  MPI_Allreduce(&i,&maxnfinal,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+  // MPI_Allreduce(&i,&maxnfinal,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
   ilong = nexcess;
-  MPI_Allreduce(&ilong,&nexcess_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
+  // MPI_Allreduce(&ilong,&nexcess_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
   ilong = nbad;
-  MPI_Allreduce(&ilong,&nbad_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
+  // MPI_Allreduce(&ilong,&nbad_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
 
   nupdates = (u64Int) niterate * nprocs * chunk;
   Gups = nupdates / t0 / 1.0e9;
@@ -220,7 +202,7 @@ int main(int narg, char **arg)
   free(table);
   free(data);
   free(send);
-  MPI_Finalize();
+  // MPI_Finalize();
   zsim_roi_end();
 
 }

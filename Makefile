@@ -5,12 +5,21 @@ SHELL = /bin/sh
 # System-specific settings
 
 CC =		mpicc
-CCFLAGS =	-O3 -O -g -DCHECK
+CCFLAGS =	-O3 -DMPICH_IGNORE_CXX_SEEK -DLONG64 -DNODEF \
+#CCFLAGS =	-O3 -fastsse -DMPICH_IGNORE_CXX_SEEK -DLONG64 -DNODEF -DCHECK \
+#		-Msafeptr -Mipa=fast 
 LINK =		mpicc
-LINKFLAGS =	-O3 -O -g 
-LIB =		-lmpich
+LINKFLAGS =	-O
+LIB =
+
 
 # Link target
+
+ALL= gups gups_vanilla
+all: $(ALL)
+
+gups: gups_single.c
+	gcc -O3 -g gups_single.c -o gups
 
 gups_vanilla:	gups_vanilla.o
 	$(LINK) $(LINKFLAGS) gups_vanilla.o $(LIB) -o gups_vanilla
@@ -25,3 +34,8 @@ gups_opt:	gups_opt.o
 
 %.o:%.c
 	$(CC) $(CCFLAGS) -c $<
+
+.PHONY : clean
+
+clean :
+	rm gups gups_vanilla
