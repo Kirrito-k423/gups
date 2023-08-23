@@ -45,8 +45,8 @@ int main(int narg, char **arg)
   int logprocs,ipartner,ndata,nsend,nkeep,nrecv,maxndata,maxnfinal,nexcess;
   int nbad,chunk,chunkbig;
   double t0,t0_all,Gups;
-  u64Int *table,*data,*send;
-  u64Int ran,datum,procmask,nglobal,offset,nupdates;
+  u64Int *table,*data;
+  u64Int ran,datum,procmask,nglobal,offset;
   u64Int ilong,nexcess_long,nbad_long;
 
   zsim_roi_begin();
@@ -67,18 +67,11 @@ int main(int narg, char **arg)
 
   /* nglobal = entire table
      nlocal = size of my portion
-     nlocalm1 = local size - 1 (for index computation)
-     logtablelocal = log of table size I store
-     offset = starting index in global table of 1st entry in local table */
-
-  logprocs = 0;
-  while (1 << logprocs < nprocs) logprocs++;
+     nlocalm1 = local size - 1 (for index computation)*/
 
   nglobal = ((u64Int) 1) << logtable;
   nlocal = nglobal / nprocs;
   nlocalm1 = nlocal - 1;
-  logtablelocal = logtable - logprocs;
-  offset = (u64Int) nlocal * me;
 
   /* allocate local memory
      16 factor insures space for messages that (randomly) exceed chunk size */
@@ -87,35 +80,21 @@ int main(int narg, char **arg)
 
   table = (u64Int *) malloc(nlocal*sizeof(u64Int));
   data = (u64Int *) malloc(chunkbig*sizeof(u64Int));
-  send = (u64Int *) malloc(chunkbig*sizeof(u64Int));
 
-  if (!table || !data || !send) {
+  if (!table || !data ) {
     if (me == 0) printf("Table allocation failed\n");
   }
 
-  /* initialize my portion of global array
-     global array starts with table[i] = i */
-
 	zsim_work_begin();
 
-  for (i = 0; i < nlocal; i++) table[i] = i + offset;
-
-  /* start my random # partway thru global stream */
-
-  nupdates = (u64Int) 1 * chunk * niterate;
-  ran = HPCC_starts(0);
 
   /* loop:
        generate chunk random values per proc
        communicate datums to correct processor via hypercube routing
        use received values to update local table */
 
-  maxndata = 0;
-  maxnfinal = 0;
-  nexcess = 0;
-  nbad = 0;
-
   // loops
+  ran = HPCC_starts(0);
   for (iterate = 0; iterate < niterate; iterate++) {
 
     // STEP1: generate chunk random values per proc
@@ -126,41 +105,6 @@ int main(int narg, char **arg)
     ndata = chunk;
 
     // STEP2: communicate datums to correct processor via hypercube routing, skip this because procs=1
-    for (j = 0; j < logprocs; j++) {
-      nkeep = nsend = 0;
-      ipartner = (1 << j) ^ me;
-      procmask = ((u64Int) 1) << (logtablelocal + j);
-      if (ipartner > me) {
-        for (i = 0; i < ndata; i++) {
-          if (data[i] & procmask) 
-            send[nsend++] = data[i];
-          else 
-            data[nkeep++] = data[i];
-        }
-      } else {
-        for (i = 0; i < ndata; i++) {
-          if (data[i] & procmask) 
-            data[nkeep++] = data[i];
-          else 
-            send[nsend++] = data[i];
-        }
-      }
-      // int MPI_Sendrecv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-      //            int dest, int sendtag,
-      //            void *recvbuf, int recvcount, MPI_Datatype recvtype,
-      //            int source, int recvtag, MPI_Comm comm, MPI_Status * status)
-      // MPI_Sendrecv(send,nsend,U64INT,
-                //  ipartner,0,
-                //  &data[nkeep],chunkbig,U64INT,
-                //  ipartner,0,MPI_COMM_WORLD,&status);
-      // MPI_Get_count(&status,U64INT,&nrecv);
-      ndata = nkeep + nrecv;
-      maxndata = MAX(maxndata,ndata);
-    }
-
-
-    maxnfinal = MAX(maxnfinal,ndata);
-    if (ndata > chunk) nexcess += ndata - chunk;
 
     // Step3: use received values to update local table
     for (i = 0; i < ndata; i++) {
@@ -170,53 +114,20 @@ int main(int narg, char **arg)
       table[index] ^= datum;
     }
 
-#ifdef CHECK
-    procmask = ((u64Int) (nprocs-1)) << logtablelocal;
-    for (i = 0; i < ndata; i++)
-      if ((data[i] & procmask) >> logtablelocal != me) nbad++;
-#endif
   }
-
-  // MPI_Barrier(MPI_COMM_WORLD);
-  // t0 += MPI_Wtime();
-
-  /* stats */
-
-  // MPI_Allreduce(&t0,&t0_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  t0 = t0_all/nprocs;
-
-  i = maxndata;
-  // MPI_Allreduce(&i,&maxndata,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
-  i = maxnfinal;
-  // MPI_Allreduce(&i,&maxnfinal,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
-  ilong = nexcess;
-  // MPI_Allreduce(&ilong,&nexcess_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
-  ilong = nbad;
-  // MPI_Allreduce(&ilong,&nbad_long,1,U64INT,MPI_SUM,MPI_COMM_WORLD);
-
-  nupdates = (u64Int) niterate * nprocs * chunk;
-  Gups = nupdates / t0 / 1.0e9;
 
   zsim_work_end();
 
   if (me == 0) {
     printf("Number of procs: %d\n",nprocs);
     printf("Vector size: %lld\n",nglobal);
-    printf("Max datums during comm: %d\n",maxndata);
-    printf("Max datums after comm: %d\n",maxnfinal);
-    printf("Excess datums (frac): %lld (%g)\n",
-	   nexcess_long,(double) nexcess_long / nupdates);
-    printf("Bad locality count: %lld\n",nbad_long);
-    printf("Update time (secs): %9.3f\n",t0);
-    printf("Gups: %9.6f\n",Gups);
   }
 
   /* clean up */
 
   free(table);
   free(data);
-  free(send);
-  // MPI_Finalize();
+
   zsim_roi_end();
 
 }

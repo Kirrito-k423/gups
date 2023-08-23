@@ -15,11 +15,14 @@ LIB =
 
 # Link target
 
-ALL= gups gups_vanilla
+ALL= gups gups_simple gups_vanilla
 all: $(ALL)
 
 gups: gups_single.c
 	gcc -O3 -g gups_single.c -o gups
+
+gups_simple: gups_simple.c
+	gcc -O3 -g gups_simple.c -o gups_simple
 
 gups_vanilla:	gups_vanilla.o
 	$(LINK) $(LINKFLAGS) gups_vanilla.o $(LIB) -o gups_vanilla

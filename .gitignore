@@ -2,3 +2,5 @@
 *.o
 gups_vanilla
 gups
+gups_simple
+nfs*
