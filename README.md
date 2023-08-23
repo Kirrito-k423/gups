@@ -1,6 +1,7 @@
 ## GUPS
 
-delete MPI part in `gups_vanillla.c` to get `gups_single.c` file which can get the same result in page walk overhead using perf
+1. delete MPI part in `gups_vanillla.c` to get `gups_single.c` file which can get the same result in page walk overhead using perf
+2. `gups_simple.c` is the simplest one-core version code.
 
 ```bash
 # compile

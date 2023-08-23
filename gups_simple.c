@@ -70,16 +70,11 @@ int main(int narg, char **arg)
      nlocalm1 = local size - 1 (for index computation)*/
 
   nglobal = ((u64Int) 1) << logtable;
-  nlocal = nglobal / nprocs;
-  nlocalm1 = nlocal - 1;
+  nlocalm1 = nglobal - 1;
 
-  /* allocate local memory
-     16 factor insures space for messages that (randomly) exceed chunk size */
-
-  chunkbig = 16*chunk;
-
-  table = (u64Int *) malloc(nlocal*sizeof(u64Int));
-  data = (u64Int *) malloc(chunkbig*sizeof(u64Int));
+  // allocate memory
+  table = (u64Int *) malloc(nglobal*sizeof(u64Int));
+  data = (u64Int *) malloc(chunk*sizeof(u64Int));
 
   if (!table || !data ) {
     if (me == 0) printf("Table allocation failed\n");
@@ -102,12 +97,11 @@ int main(int narg, char **arg)
       ran = (ran << 1) ^ ((s64Int) ran < ZERO64B ? POLY : ZERO64B);
       data[i] = ran;
     }
-    ndata = chunk;
 
     // STEP2: communicate datums to correct processor via hypercube routing, skip this because procs=1
 
     // Step3: use received values to update local table
-    for (i = 0; i < ndata; i++) {
+    for (i = 0; i < chunk; i++) {
       datum = data[i];
       index = datum & nlocalm1;
       // Important: beacause data[] contains random numbers, so the index is random address.
